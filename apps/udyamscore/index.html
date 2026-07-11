@@ -1,0 +1,217 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>UdyamScore — Live MSME Financial Health Card | FinFabric</title>
+<meta name="description" content="AI-driven MSME Financial Health Card with a live, explainable scoring engine. FinFabric for IDBI Innovate 2026."/>
+<link rel="icon" href="favicon.png"/>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet"/>
+<link rel="stylesheet" href="style.css"/>
+<script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+<script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<script src="engine.js"></script>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const {useState,useMemo,useEffect,useRef}=React;
+const DATA = window.UDYAM.buildDataset(520);
+
+function useCount(target,dur=900){
+  const [v,setV]=useState(0);const raf=useRef();
+  useEffect(()=>{let s;const step=t=>{if(!s)s=t;const p=Math.min((t-s)/dur,1);setV(target*(1-Math.pow(1-p,3)));if(p<1)raf.current=requestAnimationFrame(step);};raf.current=requestAnimationFrame(step);return()=>cancelAnimationFrame(raf.current);},[target]);
+  return v;
+}
+const ragColor=r=>r==="G"?"#2F9E64":r==="A"?"#E8A33D":"#D64545";
+const Mark=()=>(<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2 4 5v6c0 5 3.4 8.5 8 10 4.6-1.5 8-5 8-10V5z"/><path d="M9 13v3M12 10v6M15 12v4"/></svg>);
+
+function Gauge({score,rag}){
+  const pct=(score-300)/600;const c=ragColor(rag);
+  const val=useCount(score,1000);
+  return(<div className="gauge">
+    <svg width="230" height="140" viewBox="0 0 230 140">
+      <path d="M20 128 A95 95 0 0 1 210 128" fill="none" stroke="#eef2f0" strokeWidth="18" strokeLinecap="round"/>
+      <path d="M20 128 A95 95 0 0 1 210 128" fill="none" stroke={c} strokeWidth="18" strokeLinecap="round"
+        strokeDasharray={`${pct*298} 298`} style={{transition:"stroke-dasharray .8s cubic-bezier(.2,.8,.2,1),stroke .3s"}}/>
+    </svg>
+    <div style={{marginTop:-46,textAlign:"center"}}>
+      <div className="count" style={{fontSize:46,fontWeight:900,color:c,letterSpacing:-2}}>{Math.round(val)}</div>
+      <div style={{fontSize:11,color:"var(--muted2)",fontWeight:600}}>Composite Health Score · 300 to 900</div>
+      <div style={{marginTop:8}}><span className={"rag "+rag}>{rag==="G"?"Green · Low Risk":rag==="A"?"Amber · Watch":"Red · High Risk"}</span></div>
+    </div>
+  </div>);
+}
+
+function Radar({dims}){
+  const keys=Object.keys(dims);const n=keys.length;const cx=110,cy=110,R=78;
+  const pts=keys.map((k,i)=>{const a=-Math.PI/2+i*2*Math.PI/n;const r=R*dims[k]/100;return[cx+r*Math.cos(a),cy+r*Math.sin(a)];});
+  const ring=(f)=>keys.map((k,i)=>{const a=-Math.PI/2+i*2*Math.PI/n;return[cx+R*f*Math.cos(a),cy+R*f*Math.sin(a)];}).map(p=>p.join(",")).join(" ");
+  return(<svg width="220" height="230" viewBox="0 0 220 230">
+    {[0.25,0.5,0.75,1].map(f=><polygon key={f} points={ring(f)} fill="none" stroke="#e2ebe6" strokeWidth="1"/>)}
+    {keys.map((k,i)=>{const a=-Math.PI/2+i*2*Math.PI/n;return<line key={k} x1={cx} y1={cy} x2={cx+R*Math.cos(a)} y2={cy+R*Math.sin(a)} stroke="#e2ebe6"/>;})}
+    <polygon points={pts.map(p=>p.join(",")).join(" ")} fill="var(--acc)" fillOpacity="0.25" stroke="var(--acc)" strokeWidth="2" style={{transition:"all .5s"}}/>
+    {keys.map((k,i)=>{const a=-Math.PI/2+i*2*Math.PI/n;const lx=cx+(R+16)*Math.cos(a),ly=cy+(R+16)*Math.sin(a);return<text key={k} x={lx} y={ly} fontSize="9" fill="#3a4a44" textAnchor="middle" dominantBaseline="middle">{window.UDYAM.DIM_LABEL[k].split(" ")[0]}</text>;})}
+  </svg>);
+}
+
+function App(){
+  const [q,setQ]=useState("");
+  const [ragF,setRagF]=useState("ALL");
+  const [sort,setSort]=useState("score");
+  const [selId,setSelId]=useState(DATA[0].id);
+  const [tab,setTab]=useState("portfolio");
+
+  const filtered=useMemo(()=>{
+    let a=DATA.filter(e=>(ragF==="ALL"||e.rag===ragF)&&(e.name.toLowerCase().includes(q.toLowerCase())||e.sector.toLowerCase().includes(q.toLowerCase())||e.id.includes(q)));
+    a=a.slice().sort((x,y)=> sort==="score"?y.score-x.score : sort==="name"?x.name.localeCompare(y.name) : y.features.turnoverYoY-x.features.turnoverYoY);
+    return a;
+  },[q,ragF,sort]);
+  const sel=DATA.find(e=>e.id===selId)||filtered[0]||DATA[0];
+
+  const avg=Math.round(DATA.reduce((s,e)=>s+e.score,0)/DATA.length);
+  const greens=DATA.filter(e=>e.rag==="G").length;
+  const ntc=DATA.filter(e=>e.ntc).length;
+  const aAvg=useCount(avg,1100), aG=useCount(greens,1100), aN=useCount(ntc,1100), aT=useCount(DATA.length,1100);
+
+  return(<div>
+    <nav className="nav"><div className="wrap inner">
+      <a className="brand" href="#"><div className="mk"><Mark/></div><div><h1>UdyamScore</h1><small>by FinFabric</small></div></a>
+      <div className="links">
+        <a onClick={()=>setTab("portfolio")} style={{color:tab==="portfolio"?"var(--acc)":""}}>Portfolio</a>
+        <a onClick={()=>setTab("whatif")} style={{color:tab==="whatif"?"var(--acc)":""}}>Live Scorer</a>
+        <a href="https://github.com/TayalAditya/finfabric-idbi-suite" target="_blank">GitHub</a>
+        <span className="tagpill">PS-03</span>
+      </div>
+    </div></nav>
+
+    <section className="hero"><div className="wrap">
+      <div className="eyebrow">● MSME Financial Health · IDBI Innovate 2026</div>
+      <h2>Make every MSME <span className="g">credit-visible.</span></h2>
+      <p>UdyamScore turns alternate data (GST, UPI, Account Aggregator, EPFO, utility load) into a live, multidimensional, explainable health score. Every number on this page is computed by a real scoring engine — change an input, watch the score move.</p>
+      <div className="cta">
+        <button className="btn p" onClick={()=>setTab("whatif")}>Try the live scorer</button>
+        <button className="btn g" onClick={()=>document.getElementById("port").scrollIntoView()}>Explore {DATA.length} MSMEs</button>
+      </div>
+      <div style={{marginTop:20}}>
+        <span className="chip">Account Aggregator</span><span className="chip">ULI / OCEN ready</span>
+        <span className="chip">6-dimension model</span><span className="chip">Explainable (SHAP-style)</span>
+        <span className="chip">DPDP-aligned</span>
+      </div>
+    </div></section>
+
+    <div className="wrap">
+      <div className="grid g4" style={{marginBottom:22}}>
+        <div className="card stat"><div className="lbl">MSMEs in portfolio</div><div className="val count">{Math.round(aT)}</div><div className="dl">live synthetic dataset</div></div>
+        <div className="card stat"><div className="lbl">Average health score</div><div className="val count">{Math.round(aAvg)}</div><div className="dl">computed across all entities</div></div>
+        <div className="card stat"><div className="lbl">Green (bankable)</div><div className="val count">{Math.round(aG)}</div><div className="dl">{Math.round(greens/DATA.length*100)}% of book</div></div>
+        <div className="card stat"><div className="lbl">New-to-Credit onboarded</div><div className="val count">{Math.round(aN)}</div><div className="dl">thin-file, still scored</div></div>
+      </div>
+
+      {tab==="whatif" ? <WhatIf/> : (
+      <div id="port" className="grid" style={{gridTemplateColumns:"1.15fr 1fr",alignItems:"start",gap:20}}>
+        <div className="card">
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12,flexWrap:"wrap",gap:10}}>
+            <div><div className="h3">Assessment Queue <span className="live">live engine</span></div><div className="sub" style={{margin:0}}>{filtered.length} MSMEs · click to open Health Card</div></div>
+            <div style={{display:"flex",gap:8}}>
+              <input className="input" placeholder="Search name / sector" value={q} onChange={e=>setQ(e.target.value)} style={{width:150}}/>
+              <select value={ragF} onChange={e=>setRagF(e.target.value)}><option value="ALL">All</option><option value="G">Green</option><option value="A">Amber</option><option value="R">Red</option></select>
+              <select value={sort} onChange={e=>setSort(e.target.value)}><option value="score">Score</option><option value="name">Name</option><option value="growth">Growth</option></select>
+            </div>
+          </div>
+          <div style={{maxHeight:520,overflow:"auto"}}>
+          <table><thead><tr><th>MSME</th><th>Sector</th><th>Turnover</th><th>Score</th><th>Verdict</th></tr></thead>
+          <tbody>{filtered.slice(0,120).map(e=>(
+            <tr key={e.id} className={e.id===selId?"sel":""} onClick={()=>setSelId(e.id)}>
+              <td><div className="tname">{e.name}</div><div className="tsub">{e.id}{e.ntc?" · NTC":""}</div></td>
+              <td style={{fontSize:12}}>{e.sector}</td><td>{e.turnover}</td>
+              <td><b style={{color:ragColor(e.rag)}}>{e.score}</b></td><td><span className={"rag "+e.rag}></span></td>
+            </tr>))}</tbody></table>
+          </div>
+        </div>
+
+        <div className="grid" style={{gap:20}} key={sel.id}>
+          <div className="card fadein">
+            <div className="h3">{sel.name}</div>
+            <div className="sub">{sel.id} · {sel.constitution} · {sel.sector} · Turnover {sel.turnover} · Vintage {sel.vintage} · {sel.employees} employees</div>
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",alignItems:"center",gap:8}}>
+              <Gauge score={sel.score} rag={sel.rag}/>
+              <Radar dims={sel.dims}/>
+            </div>
+          </div>
+          <div className="card fadein">
+            <div className="sectionhead">Why this score</div>
+            <div className="grid g2" style={{gap:18}}>
+              <div><div className="sub" style={{color:"var(--grn)",fontWeight:700}}>Positive drivers</div>
+                {sel.pos.slice(0,4).map(c=><div className="reason" key={c.key}><span className="b" style={{background:"#e6f6ec",color:"#1e7a45"}}>+{c.impact}</span><div><b>{c.label}</b> · {c.val}/100</div></div>)}
+                {sel.pos.length===0&&<div className="tsub">No strong positive drivers.</div>}
+              </div>
+              <div><div className="sub" style={{color:"var(--red)",fontWeight:700}}>Risk flags</div>
+                {sel.neg.slice(0,4).map(c=><div className="reason" key={c.key}><span className="b" style={{background:"#fbe9e9",color:"#b03434"}}>{c.impact}</span><div><b>{c.label}</b> · {c.val}/100</div></div>)}
+                {sel.neg.length===0&&<div className="tsub">Clean profile, no material flags.</div>}
+              </div>
+            </div>
+          </div>
+          <div className="card fadein" style={{display:"flex",justifyContent:"space-between",alignItems:"center",background:"var(--soft)",flexWrap:"wrap",gap:10}}>
+            <div><b style={{fontSize:13}}>Underwriter decision · human-in-the-loop</b><div className="tsub">AI recommends, the credit officer decides. Every action logged (maker-checker).</div></div>
+            <button className="btn p">Approve recommendation</button>
+          </div>
+        </div>
+      </div>)}
+    </div>
+
+    <div className="foot">Built by <b>FinFabric</b> for IDBI Innovate 2026 · Team Lead Aditya Tayal · Synthetic data, real engine · AWS-native, DPDP-aligned</div>
+  </div>);
+}
+
+function WhatIf(){
+  const [f,setF]=useState({inflowVolatility:30,surplusRatio:35,bounceRate:3,gstOnTimeRate:88,gstFilingCompleteness:92,vintageYears:3,sectorRisk:40,employees:10,turnoverYoY:12,utilityGrowth:8,overdraftUsage:35,repaymentRegularity:80,thinFile:false,delinquencies:0,creditVintage:4});
+  const res=window.UDYAM.scoreEntity(f);
+  const set=(k,v)=>setF(s=>({...s,[k]:v}));
+  const sliders=[
+    ["gstOnTimeRate","GST on-time filing %",0,100],
+    ["surplusRatio","Retained surplus %",0,60],
+    ["inflowVolatility","Inflow volatility (lower better)",0,70],
+    ["turnoverYoY","Turnover YoY %",-15,30],
+    ["utilityGrowth","Utility-load growth %",-20,30],
+    ["overdraftUsage","Overdraft usage %",0,90],
+    ["repaymentRegularity","Repayment regularity",40,100],
+    ["vintageYears","Business vintage (yrs)",0,9],
+    ["employees","Employees (EPFO)",0,40],
+  ];
+  return(<div className="grid" style={{gridTemplateColumns:"1fr 380px",alignItems:"start",gap:20}}>
+    <div className="card">
+      <div className="h3">Live scorer <span className="live">recomputes instantly</span></div>
+      <div className="sub">Drag any input. The six-dimension model recalculates the composite score in real time — no page reload, no hardcoded numbers.</div>
+      <div className="grid g2" style={{gap:14}}>
+        {sliders.map(([k,lbl,mn,mx])=>(
+          <div key={k}>
+            <div style={{display:"flex",justifyContent:"space-between",fontSize:12,fontWeight:600,marginBottom:4}}><span>{lbl}</span><span className="kbd">{f[k]}</span></div>
+            <input className="slider" type="range" min={mn} max={mx} value={f[k]} onChange={e=>set(k,+e.target.value)}/>
+          </div>))}
+        <div><div style={{fontSize:12,fontWeight:600,marginBottom:6}}>Profile flags</div>
+          <label style={{fontSize:12,display:"flex",gap:8,alignItems:"center",marginBottom:6}}><input type="checkbox" checked={f.thinFile} onChange={e=>set("thinFile",e.target.checked)}/> New-to-Credit (thin file)</label>
+          <div style={{display:"flex",justifyContent:"space-between",fontSize:12,fontWeight:600}}><span>Bureau delinquencies</span><span className="kbd">{f.delinquencies}</span></div>
+          <input className="slider" type="range" min="0" max="3" value={f.delinquencies} onChange={e=>set("delinquencies",+e.target.value)}/>
+        </div>
+      </div>
+    </div>
+    <div className="grid" style={{gap:20}}>
+      <div className="card" style={{display:"grid",placeItems:"center"}}><Gauge score={res.score} rag={res.rag}/></div>
+      <div className="card"><div className="sectionhead">Dimension breakdown</div>
+        {Object.keys(res.dims).map(k=>(
+          <div key={k} style={{marginBottom:9}}>
+            <div style={{display:"flex",justifyContent:"space-between",fontSize:11.5,marginBottom:3}}><span>{window.UDYAM.DIM_LABEL[k]}</span><b>{Math.round(res.dims[k])}</b></div>
+            <div className="bar"><i style={{width:res.dims[k]+"%"}}/></div>
+          </div>))}
+      </div>
+    </div>
+  </div>);
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
+</script>
+</body>
+</html>

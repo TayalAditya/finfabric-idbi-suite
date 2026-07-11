@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Sanchay — Agentic Reconciliation Copilot | FinFabric</title>
+<meta name="description" content="An agentic reconciliation engine that auto-matches ledgers, explains breaks, and drafts resolutions with maker-checker control. FinFabric for IDBI Innovate 2026."/>
+<link rel="icon" href="favicon.png"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet"/>
+<link rel="stylesheet" href="style.css"/>
+<script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+<script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<script src="engine.js"></script>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const {useState,useMemo,useEffect,useRef}=React;
+const R=window.SANCHAY.build();
+const fmt=n=>"₹"+Math.round(n).toLocaleString("en-IN");
+const Mark=()=>(<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="#fff" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"><path d="M4 7h9M13 7l-3-3M13 7l-3 3"/><path d="M20 17h-9M11 17l3 3M11 17l3-3"/></svg>);
+function useCount(t,d=1000){const[v,setV]=useState(0);const r=useRef();useEffect(()=>{let s;const st=x=>{if(!s)s=x;const p=Math.min((x-s)/d,1);setV(t*(1-Math.pow(1-p,3)));if(p<1)r.current=requestAnimationFrame(st);};r.current=requestAnimationFrame(st);return()=>cancelAnimationFrame(r.current);},[t]);return v;}
+
+function App(){
+  const rate=R.matched.length/R.bank.length*100;
+  const [sel,setSel]=useState(R.suggested[0]);
+  const [approved,setApproved]=useState({});
+  const total=R.bank.length;
+  const aM=useCount(R.matched.length,1100),aS=useCount(R.suggested.length,1100),aE=useCount(R.exceptions.length,1100),aR=useCount(rate,1100);
+
+  const queue=[...R.suggested.map(s=>({...s,kind:"suggested"})),...R.exceptions.map(e=>({...e,kind:"exception"}))];
+
+  return(<div>
+    <nav className="nav"><div className="wrap inner">
+      <a className="brand" href="#"><div className="mk"><Mark/></div><div><h1>Sanchay</h1><small>by FinFabric</small></div></a>
+      <div className="links"><a href="#queue">Exceptions</a><a href="#audit">Audit</a><a href="https://github.com/TayalAditya/finfabric-idbi-suite" target="_blank">GitHub</a><span className="tagpill">Open Track</span></div>
+    </div></nav>
+
+    <section className="hero"><div className="wrap">
+      <div className="eyebrow">● Novel Idea · Back-Office Operations · IDBI Innovate 2026</div>
+      <h2>Reconciliation that <span className="g">explains itself.</span></h2>
+      <p>Sanchay runs a real matching engine over two synthetic ledgers ({R.bank.length} bank vs {R.gl.length} GL entries), auto-matching on amount, value-date and reference similarity. Every break is explained and a resolution is drafted, with a maker-checker human always in control.</p>
+      <div style={{marginTop:16}}><span className="chip">Fuzzy matching engine</span><span className="chip">Explainable breaks</span><span className="chip">Maker-checker</span><span className="chip">Immutable audit</span></div>
+    </div></section>
+
+    <div className="wrap">
+      <div className="grid g4" style={{marginBottom:22}}>
+        <div className="card stat"><div className="lbl">Entries reconciled</div><div className="val count">{Math.round(useCount(total,1100))}</div><div className="dl">bank-side, EOD batch</div></div>
+        <div className="card stat"><div className="lbl">Auto-match rate</div><div className="val count">{aR.toFixed(1)}%</div><div className="dl">straight-through</div></div>
+        <div className="card stat"><div className="lbl">AI-suggested</div><div className="val count">{Math.round(aS)}</div><div className="dl">drafted, needs approval</div></div>
+        <div className="card stat"><div className="lbl">True exceptions</div><div className="val count" style={{background:"none",color:"var(--red)",WebkitBackgroundClip:"initial"}}>{Math.round(aE)}</div><div className="dl">escalated</div></div>
+      </div>
+
+      <div id="queue" className="grid" style={{gridTemplateColumns:"1.1fr 1fr",alignItems:"start",gap:20}}>
+        <div className="card">
+          <div className="h3">Exception & suggestion queue <span className="live">agentic triage</span></div>
+          <div className="sub">Click any item to see the AI explanation and drafted resolution.</div>
+          <div style={{maxHeight:520,overflow:"auto"}}>
+          <table><thead><tr><th>Ref</th><th>Type</th><th>Amount</th><th>Conf.</th><th></th></tr></thead>
+          <tbody>{queue.slice(0,140).map((it,i)=>{const id=it.bk?.id||it.gl?.id||i;return(
+            <tr key={id+i} className={sel&&(sel.bk?.id||sel.gl?.id)===(it.bk?.id||it.gl?.id)?"sel":""} onClick={()=>setSel(it)}>
+              <td className="tname">{it.bk?.id||it.gl?.id}</td>
+              <td style={{fontSize:11.5}}>{it.kind==="suggested"?"Probable match":it.type}<div className="tsub">{it.bk?.ledger||it.gl?.ledger}</div></td>
+              <td>{fmt(it.bk?.amount||it.gl?.amount)}</td>
+              <td>{it.conf>0? <b style={{color:it.conf>0.8?"var(--grn)":"var(--amber)"}}>{Math.round(it.conf*100)}%</b> : <span className="rag R"></span>}</td>
+              <td>{approved[id]?<span className="rag G"></span>:<span className={"rag "+(it.kind==="suggested"?"A":"R")}></span>}</td>
+            </tr>);})}</tbody></table>
+          </div>
+        </div>
+
+        <div className="grid" style={{gap:20}} key={(sel&&(sel.bk?.id||sel.gl?.id))||"x"}>
+          {sel&&<>
+          <div className="card fadein">
+            <div className="h3" style={{display:"flex",alignItems:"center",gap:8}}>
+              <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="var(--acc)" strokeWidth="2" strokeLinecap="round"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
+              AI explanation</div>
+            <div className="sub">{sel.bk?.id||sel.gl?.id} · {sel.bk?.ledger||sel.gl?.ledger} · {fmt(sel.bk?.amount||sel.gl?.amount)}</div>
+            <p style={{fontSize:12.5,lineHeight:1.55,color:"var(--ink2)"}}>{sel.reason}</p>
+            {sel.conf>0&&<div style={{marginTop:10}}><div className="tsub">Match confidence</div><div className="bar"><i style={{width:Math.round(sel.conf*100)+"%"}}/></div></div>}
+          </div>
+          <div className="card fadein" style={{borderColor:"#fcd9b3",background:"#fff7ef"}}>
+            <div className="h3" style={{display:"flex",alignItems:"center",gap:8}}>
+              <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="#F58220" strokeWidth="2" strokeLinecap="round"><path d="M12 3v4M12 17v4M3 12h4M17 12h4M6 6l2.5 2.5M15.5 15.5 18 18M18 6l-2.5 2.5M8.5 15.5 6 18"/></svg>
+              Suggested resolution</div>
+            <div className="sub">Draft, requires maker-checker approval</div>
+            <p style={{fontSize:12.5,lineHeight:1.55,color:"var(--ink2)"}}>{sel.fix}</p>
+            <div style={{display:"flex",gap:8,marginTop:12}}>
+              <button className="btn p" onClick={()=>setApproved(a=>({...a,[sel.bk?.id||sel.gl?.id]:1}))}>Approve (Checker)</button>
+              <button className="btn g">Edit</button>
+            </div>
+            {approved[sel.bk?.id||sel.gl?.id]&&<div style={{marginTop:10,fontSize:12,color:"var(--grn)",fontWeight:700}}>✓ Approved, posted to audit trail</div>}
+          </div>
+          </>}
+        </div>
+      </div>
+
+      <div id="audit" className="card" style={{marginTop:22}}>
+        <div className="sectionhead">Immutable audit trail</div>
+        <div style={{fontSize:12,color:"var(--ink2)",lineHeight:1.9}}>
+          <div>18:40 · EOD batch ingested ({R.bank.length} bank + {R.gl.length} GL entries, {6} ledgers)</div>
+          <div>18:41 · Matching agent auto-matched <b>{R.matched.length}</b>, suggested <b>{R.suggested.length}</b>, flagged <b>{R.exceptions.length}</b> exceptions</div>
+          <div>18:43 · Maker <b>ops.rao</b> reviewing queue · {Object.keys(approved).length} approved this session</div>
+          <div>18:44 · Full lineage retained (immutable log), least-privilege IAM enforced</div>
+        </div>
+      </div>
+    </div>
+    <div className="foot">Built by <b>FinFabric</b> for IDBI Innovate 2026 · Team Lead Aditya Tayal · Real matching engine on synthetic ledgers</div>
+  </div>);
+}
+ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
+</script>
+</body>
+</html>

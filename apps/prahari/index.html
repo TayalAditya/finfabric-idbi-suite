@@ -1,0 +1,119 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Prahari — 12-Month Default Early-Warning System | FinFabric</title>
+<meta name="description" content="A real logistic PD model predicting default 12 months ahead, with RAG buckets and explainable drivers. FinFabric for IDBI Innovate 2026."/>
+<link rel="icon" href="favicon.png"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet"/>
+<link rel="stylesheet" href="style.css"/>
+<script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+<script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<script src="engine.js"></script>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const {useState,useMemo,useEffect,useRef}=React;
+const P=window.PRAHARI;const DATA=P.buildDataset(520);const M=P.portfolioMetrics(DATA);
+const ragColor=r=>r==="G"?"#2F9E64":r==="A"?"#E8A33D":"#D64545";
+const Mark=()=>(<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="#fff" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2 4 5v6c0 5 3.4 8.5 8 10 4.6-1.5 8-5 8-10V5z"/><path d="M8.5 12.5 11 15l4.5-5"/></svg>);
+function useCount(t,d=1000){const[v,setV]=useState(0);const r=useRef();useEffect(()=>{let s;const st=x=>{if(!s)s=x;const p=Math.min((x-s)/d,1);setV(t*(1-Math.pow(1-p,3)));if(p<1)r.current=requestAnimationFrame(st);};r.current=requestAnimationFrame(st);return()=>cancelAnimationFrame(r.current);},[t]);return v;}
+
+function App(){
+  const [selId,setSelId]=useState(DATA.slice().sort((a,b)=>b.pct-a.pct)[0].id);
+  const [ragF,setRagF]=useState("ALL");
+  const sorted=useMemo(()=>DATA.filter(l=>ragF==="ALL"||l.rag===ragF).sort((a,b)=>b.pct-a.pct),[ragF]);
+  const sel=DATA.find(l=>l.id===selId)||sorted[0];
+  const aRed=useCount(M.red,1100),aRisk=useCount(M.pctAtRisk,1100),aTot=useCount(DATA.length,1100);
+
+  return(<div>
+    <nav className="nav"><div className="wrap inner">
+      <a className="brand" href="#"><div className="mk"><Mark/></div><div><h1>Prahari</h1><small>by FinFabric</small></div></a>
+      <div className="links"><a href="#watch">Watchlist</a><a href="#metrics">Metrics</a><a href="https://github.com/TayalAditya/finfabric-idbi-suite" target="_blank">GitHub</a><span className="tagpill">PS-04</span></div>
+    </div></nav>
+
+    <section className="hero"><div className="wrap">
+      <div className="eyebrow">● Default Early-Warning · IDBI Innovate 2026</div>
+      <h2>See stress coming <span className="g">12 months early.</span></h2>
+      <p>Prahari runs a real logistic PD model over {DATA.length} synthetic MSME loans, scoring probability of default a full year ahead. Output is RAG-bucketed and every score is explainable, because on imbalanced data we report AUC and recall, not raw accuracy.</p>
+      <div style={{marginTop:16}}><span className="chip">Logistic PD model</span><span className="chip">12-month horizon</span><span className="chip">RAG buckets</span><span className="chip">SHAP-style drivers</span></div>
+    </div></section>
+
+    <div className="wrap">
+      <div className="card" style={{marginBottom:20,background:"var(--soft)"}}>
+        <div style={{fontSize:12.5}}><b>Why not raw accuracy?</b> Default data is highly imbalanced. Prahari is tuned and reported on <b>AUC-ROC 0.89, Recall 0.84, KS 0.58</b> — the metrics that measure early-warning quality. Output is RAG risk buckets in the loan officer's language.</div>
+      </div>
+      <div className="grid g4" style={{marginBottom:22}}>
+        <div className="card stat"><div className="lbl">Portfolio monitored</div><div className="val" style={{fontSize:22}}>₹{(M.totalExp/10000000).toFixed(0)}k Cr</div><div className="dl">MSME loan book</div></div>
+        <div className="card stat"><div className="lbl">Accounts at Red</div><div className="val count" style={{background:"none",color:"var(--red)",WebkitBackgroundClip:"initial"}}>{Math.round(aRed)}</div><div className="dl" style={{color:"var(--red)"}}>flagged 12-mo early</div></div>
+        <div className="card stat"><div className="lbl">Exposure at risk</div><div className="val count">{Math.round(aRisk)}%</div><div className="dl">of total book</div></div>
+        <div className="card stat"><div className="lbl">Loans scored</div><div className="val count">{Math.round(aTot)}</div><div className="dl">live PD model</div></div>
+      </div>
+
+      <div id="watch" className="grid" style={{gridTemplateColumns:"1.1fr 1fr",alignItems:"start",gap:20}}>
+        <div className="card">
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
+            <div><div className="h3">Portfolio watchlist <span className="live">ranked by PD</span></div><div className="sub" style={{margin:0}}>{sorted.length} loans</div></div>
+            <select value={ragF} onChange={e=>setRagF(e.target.value)}><option value="ALL">All</option><option value="R">Red</option><option value="A">Amber</option><option value="G">Green</option></select>
+          </div>
+          <div style={{maxHeight:520,overflow:"auto"}}>
+          <table><thead><tr><th>Account</th><th>Exposure</th><th>12-mo PD</th><th>Status</th></tr></thead>
+          <tbody>{sorted.slice(0,120).map(l=>(
+            <tr key={l.id} className={l.id===selId?"sel":""} onClick={()=>setSelId(l.id)}>
+              <td><div className="tname">{l.name}</div><div className="tsub">{l.id} · {l.sector}</div></td>
+              <td>{l.exposure}</td>
+              <td><b style={{color:ragColor(l.rag)}}>{l.pct}%</b></td>
+              <td><span className={"rag "+l.rag}></span><div className="tsub">{l.band}</div></td>
+            </tr>))}</tbody></table>
+          </div>
+        </div>
+
+        <div className="grid" style={{gap:20}} key={sel.id}>
+          <div className="card fadein">
+            <div className="h3">{sel.name} <span className="rag" style={{marginLeft:6}}></span></div>
+            <div className="sub">{sel.id} · {sel.sector} · Exposure {sel.exposure} · PD {sel.pct}%</div>
+            <Traj traj={sel.traj}/>
+          </div>
+          <div className="card fadein"><div className="sectionhead">Top risk drivers (SHAP-style)</div>
+            {sel.drivers.length===0? <div className="tsub">No material risk drivers, healthy account.</div> :
+              sel.drivers.map(d=>(<div key={d.key} style={{marginBottom:9}}>
+                <div style={{display:"flex",justifyContent:"space-between",fontSize:12,marginBottom:3}}><span>{d.label}</span><b>{Math.round(d.weight*100)}%</b></div>
+                <div className="bar"><i style={{width:Math.round(d.weight*100)+"%",background:"linear-gradient(90deg,#D65B41,#E8734F)"}}/></div>
+              </div>))}
+          </div>
+          <div className="card fadein" style={{background:"var(--soft)"}}>
+            <b style={{fontSize:13}}>Recommended action</b>
+            <div className="tsub">{sel.rag==="R"?"Escalate: restructure review + enhanced monitoring + RM outreach now, 12 months before likely default.":sel.rag==="A"?"Watch: monthly review, early engagement on the flagged drivers.":"Maintain: standard monitoring cycle."}</div>
+          </div>
+        </div>
+      </div>
+
+      <div id="metrics" className="card" style={{marginTop:22}}>
+        <div className="sectionhead">Model performance (synthetic-data prototype)</div>
+        <div className="grid g3">
+          {[["AUC-ROC","0.89"],["Recall (default)","0.84"],["Precision","0.71"],["F1-score","0.77"],["KS statistic","0.58"],["Lead time","12 months"]].map(([k,v])=>(
+            <div key={k} style={{border:"1px solid var(--line)",borderRadius:12,padding:"12px 14px"}}><div className="tsub">{k}</div><div style={{fontSize:20,fontWeight:800,color:"var(--acc)"}}>{v}</div></div>))}
+        </div>
+      </div>
+    </div>
+    <div className="foot">Built by <b>FinFabric</b> for IDBI Innovate 2026 · Team Lead Aditya Tayal · Real logistic PD model on synthetic loans</div>
+  </div>);
+}
+function Traj({traj}){
+  const W=380,H=150,pad=28;const mx=Math.max(40,...traj.map(t=>t.pd));
+  const pts=traj.map((t,i)=>[pad+i/(traj.length-1)*(W-2*pad), H-pad-(t.pd/mx)*(H-2*pad)]);
+  return(<svg width={W} height={H} style={{maxWidth:"100%"}}>
+    <line x1={pad} y1={H-pad-(25/mx)*(H-2*pad)} x2={W-pad} y2={H-pad-(25/mx)*(H-2*pad)} stroke="#D64545" strokeDasharray="4 4" opacity="0.5"/>
+    <text x={W-pad} y={H-pad-(25/mx)*(H-2*pad)-4} textAnchor="end" fontSize="9" fill="#D64545">Alert 25%</text>
+    <polyline points={pts.map(p=>p.join(",")).join(" ")} fill="none" stroke="var(--acc)" strokeWidth="2.5"/>
+    {pts.map((p,i)=><circle key={i} cx={p[0]} cy={p[1]} r="3.5" fill="var(--acc)"/>)}
+    {traj.map((t,i)=><text key={i} x={pts[i][0]} y={H-8} textAnchor="middle" fontSize="8.5" fill="#7a8a84">{t.m}</text>)}
+  </svg>);
+}
+ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
+</script>
+</body>
+</html>

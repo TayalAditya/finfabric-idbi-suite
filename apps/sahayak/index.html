@@ -1,0 +1,182 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Sahayak — AI Wealth Companion with Live Market Data | FinFabric</title>
+<meta name="description" content="AI avatar wealth companion with live Indian mutual fund NAVs, real SIP and goal math, and suitability-based advice. FinFabric for IDBI Innovate 2026."/>
+<link rel="icon" href="favicon.png"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet"/>
+<link rel="stylesheet" href="style.css"/>
+<script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+<script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<script src="engine.js"></script>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const {useState,useMemo,useEffect,useRef}=React;
+const S=window.SAHAYAK;
+const fmt=n=>"₹"+Math.round(n).toLocaleString("en-IN");
+const fmtL=n=> n>=10000000?"₹"+(n/10000000).toFixed(2)+" Cr" : n>=100000?"₹"+(n/100000).toFixed(1)+" L" : fmt(n);
+const Mark=()=>(<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="#fff" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"><path d="M21 11.5a8.4 8.4 0 0 1-8.5 8.5 8.5 8.5 0 0 1-3.8-.9L3 21l1.9-5.7A8.5 8.5 0 0 1 12.5 3 8.4 8.4 0 0 1 21 11.5z"/><path d="M12 8v4M12 15h.01"/></svg>);
+
+function Spark({data,color}){
+  if(!data||data.length<2) return <div style={{height:40}}/>;
+  const xs=data.map(d=>d.nav);const mn=Math.min(...xs),mx=Math.max(...xs);const W=120,H=38;
+  const pts=data.map((d,i)=>[i/(data.length-1)*W, H-(mx===mn?0.5:(d.nav-mn)/(mx-mn))*H]);
+  const up=xs[xs.length-1]>=xs[0];
+  return <svg width={W} height={H}><polyline points={pts.map(p=>p.join(",")).join(" ")} fill="none" stroke={up?"#2F9E64":"#D64545"} strokeWidth="1.8"/></svg>;
+}
+
+function App(){
+  const [age,setAge]=useState(34);
+  const [risk,setRisk]=useState("mod");
+  const [invest,setInvest]=useState(50000);
+  const [funds,setFunds]=useState(null);
+  const [hist,setHist]=useState({});
+  const [loading,setLoading]=useState(true);
+
+  useEffect(()=>{ (async()=>{
+    const f=await S.fetchAllNAV(); setFunds(f); setLoading(false);
+    // load a couple of histories for sparklines
+    const h={}; for(const fu of f.slice(0,4)){ h[fu.code]=await S.fetchHistory(fu.code); }
+    setHist(h);
+  })(); },[]);
+
+  const suit=S.suitability(age,risk);
+  const goals=[
+    {g:"Retirement Corpus",tgt:24000000,years:Math.max(60-age,5)},
+    {g:"Child Education",tgt:4500000,years:12},
+    {g:"Home Down-payment",tgt:3000000,years:6},
+  ].map(x=>{ const req=S.sipRequired(x.tgt,x.years,suit.expReturn); return {...x,req}; });
+
+  const proj=[10,15,20,25].map(y=>({y, val:S.sipFV(invest,y,suit.expReturn)}));
+
+  const okFunds=(funds||[]).filter(f=>f.ok);
+  const chat=[
+    {who:"ai",t:`Namaste. I am Sahayak. Based on your age (${age}) and a ${S.riskLabel(age,risk).toLowerCase()} profile, I have built a suitability-checked plan below using live fund NAVs.`},
+    {who:"me",t:`I can invest ${fmt(invest)} a month. Where should it go?`},
+    {who:"ai",t:`Split it ${suit.equity}% equity, ${suit.debt}% debt, ${suit.gold}% gold, ${suit.liquid}% liquid. At a blended ${suit.expReturn}% expected return, in 20 years that becomes about ${fmtL(S.sipFV(invest,20,suit.expReturn))}.`},
+    {who:"ai",t:`These are vanilla, non-regulated suggestions I can act on directly. For ELSS with insurance, I will hand you to a certified Relationship Manager as a qualified lead.`},
+  ];
+
+  return(<div>
+    <nav className="nav"><div className="wrap inner">
+      <a className="brand" href="#"><div className="mk"><Mark/></div><div><h1>Sahayak</h1><small>by FinFabric</small></div></a>
+      <div className="links"><a href="#plan">Plan</a><a href="#funds">Live Funds</a><a href="https://github.com/TayalAditya/finfabric-idbi-suite" target="_blank">GitHub</a><span className="tagpill">PS-01</span></div>
+    </div></nav>
+
+    <section className="hero"><div className="wrap">
+      <div className="eyebrow">● Digital Wealth Management · IDBI Innovate 2026</div>
+      <h2>Personal wealth advice, <span className="g">for every customer.</span></h2>
+      <p>Sahayak is an avatar-led, multilingual wealth companion inside the bank app. It runs a real suitability engine and live Indian mutual-fund NAVs — the projections below use actual market data and standard SIP math, not placeholders.</p>
+      <div style={{marginTop:16}}>
+        <span className="chip">Live NAVs via mfapi.in</span><span className="chip">Goal-based SIP math</span>
+        <span className="chip">Suitability engine</span><span className="chip">Hybrid RM hand-off</span><span className="chip">Multilingual</span>
+      </div>
+    </div></section>
+
+    <div className="wrap" id="plan">
+      <div className="grid" style={{gridTemplateColumns:"340px 1fr",alignItems:"start",gap:20}}>
+        <div className="card" style={{background:"linear-gradient(180deg,#fff,var(--soft))"}}>
+          <div className="avatar-wrap" style={{textAlign:"center",marginBottom:12}}>
+            <div style={{width:110,height:110,borderRadius:"50%",margin:"0 auto",display:"grid",placeItems:"center",background:"radial-gradient(circle at 40% 30%,var(--acc3),var(--acc))",boxShadow:"0 10px 30px color-mix(in srgb,var(--acc) 45%,transparent)"}}>
+              <svg viewBox="0 0 24 24" width="52" height="52" fill="none" stroke="#fff" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/><path d="M18.5 3.5 19 5l1.5.5L19 6l-.5 1.5L18 6l-1.5-.5L18 5z"/></svg>
+            </div>
+            <div style={{marginTop:10,fontWeight:800}}>Sahayak</div>
+            <div className="tsub">Voice + text · goal-based</div>
+          </div>
+          <div style={{display:"flex",flexDirection:"column",gap:9}}>
+            {chat.map((m,i)=><div key={i} style={{maxWidth:"90%",padding:"10px 13px",borderRadius:13,fontSize:12.5,lineHeight:1.45,alignSelf:m.who==="me"?"flex-end":"flex-start",background:m.who==="me"?"var(--acc)":"#fff",color:m.who==="me"?"#fff":"var(--ink)",border:m.who==="ai"?"1px solid var(--line)":"none"}}>{m.t}</div>)}
+          </div>
+        </div>
+
+        <div className="grid" style={{gap:20}}>
+          <div className="card">
+            <div className="h3">Your profile</div>
+            <div className="sub">Adjust and the whole plan recomputes live.</div>
+            <div className="grid g3" style={{gap:16}}>
+              <div><div style={{display:"flex",justifyContent:"space-between",fontSize:12,fontWeight:600,marginBottom:4}}><span>Age</span><span className="kbd">{age}</span></div><input className="slider" type="range" min="22" max="60" value={age} onChange={e=>setAge(+e.target.value)}/></div>
+              <div><div style={{fontSize:12,fontWeight:600,marginBottom:4}}>Risk appetite</div><select value={risk} onChange={e=>setRisk(e.target.value)} style={{width:"100%"}}><option value="cons">Conservative</option><option value="mod">Moderate</option><option value="aggr">Aggressive</option></select></div>
+              <div><div style={{display:"flex",justifyContent:"space-between",fontSize:12,fontWeight:600,marginBottom:4}}><span>Monthly SIP</span><span className="kbd">{fmt(invest)}</span></div><input className="slider" type="range" min="5000" max="200000" step="5000" value={invest} onChange={e=>setInvest(+e.target.value)}/></div>
+            </div>
+          </div>
+
+          <div className="grid g4">
+            <div className="card stat"><div className="lbl">Suitability</div><div className="val" style={{fontSize:19}}>{S.riskLabel(age,risk).split(" (")[0]}</div><div className="dl">SEBI-aligned profile</div></div>
+            <div className="card stat"><div className="lbl">Blended exp. return</div><div className="val">{suit.expReturn}%</div><div className="dl">from your allocation</div></div>
+            <div className="card stat"><div className="lbl">SIP in 20 yrs</div><div className="val" style={{fontSize:22}}>{fmtL(S.sipFV(invest,20,suit.expReturn))}</div><div className="dl">{fmt(invest)}/mo compounded</div></div>
+            <div className="card stat"><div className="lbl">Equity allocation</div><div className="val">{suit.equity}%</div><div className="dl">age + risk based</div></div>
+          </div>
+
+          <div className="grid g2">
+            <div className="card"><div className="sectionhead">Recommended allocation</div>
+              <Donut suit={suit}/>
+            </div>
+            <div className="card"><div className="sectionhead">SIP growth projection</div>
+              <Bars proj={proj}/>
+              <div className="tsub" style={{marginTop:6}}>Standard SIP future-value math at {suit.expReturn}% p.a.</div>
+            </div>
+          </div>
+
+          <div className="card"><div className="sectionhead">Goal-based planning</div>
+            <div className="grid g3">
+              {goals.map(g=>(<div key={g.g} style={{border:"1px solid var(--line)",borderRadius:12,padding:14}}>
+                <div style={{fontWeight:700,fontSize:13}}>{g.g}</div>
+                <div className="tsub">Target {fmtL(g.tgt)} · {g.years} yrs</div>
+                <div style={{marginTop:8,fontSize:12}}>Needs <b style={{color:"var(--acc)"}}>{fmt(g.req)}/mo</b></div>
+                <div className="bar" style={{marginTop:6}}><i style={{width:Math.min(100,invest/g.req*100)+"%"}}/></div>
+                <div className="tsub" style={{marginTop:4}}>{invest>=g.req?"On track with current SIP":`Shortfall ${fmt(Math.max(0,g.req-invest))}/mo`}</div>
+              </div>))}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div id="funds" style={{marginTop:24}}>
+        <div className="card"><div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:6}}>
+          <div><div className="h3">Live fund NAVs <span className="live">real market data</span></div><div className="sub" style={{margin:0}}>Fetched from mfapi.in · actual Indian mutual funds</div></div>
+        </div>
+        {loading? <div className="tsub">Loading live NAVs…</div> :
+          <table><thead><tr><th>Fund</th><th>Class</th><th>NAV (₹)</th><th>As of</th><th>Trend (60d)</th></tr></thead>
+          <tbody>{okFunds.map(f=>(<tr key={f.code} style={{cursor:"default"}}>
+            <td className="tname" style={{fontWeight:600}}>{f.label}</td>
+            <td><span className="chip" style={{margin:0}}>{f.cls}</span></td>
+            <td><b>{f.nav?.toFixed(2)}</b></td><td className="tsub">{f.date}</td>
+            <td><Spark data={hist[f.code]} /></td>
+          </tr>))}</tbody></table>}
+        </div>
+      </div>
+    </div>
+    <div className="foot">Built by <b>FinFabric</b> for IDBI Innovate 2026 · Team Lead Aditya Tayal · Live market data + real SIP math · Hybrid AI + human RM</div>
+  </div>);
+}
+
+function Donut({suit}){
+  const segs=[["Equity",suit.equity,"var(--acc)"],["Debt",suit.debt,"var(--acc3)"],["Gold",suit.gold,"#C9A227"],["Liquid",suit.liquid,"#B7A6E0"]];
+  let acc=0;const R=54,C=2*Math.PI*R;
+  return(<div style={{display:"flex",alignItems:"center",gap:18}}>
+    <svg width="150" height="150" viewBox="0 0 150 150">
+      {segs.map(([l,v,c],i)=>{const dash=v/100*C;const off=acc;acc+=dash;return <circle key={i} cx="75" cy="75" r={R} fill="none" stroke={c} strokeWidth="20" strokeDasharray={`${dash} ${C-dash}`} strokeDashoffset={-off} transform="rotate(-90 75 75)" style={{transition:"all .5s"}}/>;})}
+      <text x="75" y="72" textAnchor="middle" fontSize="20" fontWeight="800" fill="var(--acc)">{suit.equity}%</text>
+      <text x="75" y="88" textAnchor="middle" fontSize="9" fill="#7a8a84">equity</text>
+    </svg>
+    <div>{segs.map(([l,v,c])=><div key={l} style={{display:"flex",alignItems:"center",gap:7,fontSize:12,marginBottom:5}}><i style={{width:11,height:11,borderRadius:3,background:c,display:"inline-block"}}/>{l} <b style={{marginLeft:"auto"}}>{v}%</b></div>)}</div>
+  </div>);
+}
+function Bars({proj}){
+  const mx=Math.max(...proj.map(p=>p.val));const H=150;
+  return(<div style={{display:"flex",gap:14,alignItems:"flex-end",height:H,padding:"8px 4px"}}>
+    {proj.map(p=>(<div key={p.y} style={{flex:1,textAlign:"center"}}>
+      <div style={{fontSize:10.5,fontWeight:700,color:"var(--acc)",marginBottom:4}}>{p.val>=10000000?"₹"+(p.val/10000000).toFixed(1)+"Cr":"₹"+Math.round(p.val/100000)+"L"}</div>
+      <div style={{height:p.val/mx*(H-40),background:"linear-gradient(180deg,var(--acc3),var(--acc))",borderRadius:"7px 7px 0 0",transition:"height .5s"}}/>
+      <div className="tsub" style={{marginTop:5}}>{p.y}y</div>
+    </div>))}
+  </div>);
+}
+ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
+</script>
+</body>
+</html>

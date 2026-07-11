@@ -1,9 +1,9 @@
-# Cognite Labs — IDBI Innovate 2026 Solution Suite
+# FinFabric — IDBI Innovate 2026 Solution Suite
 
 Five production-minded, AWS-native solutions for IDBI Bank, built for **IDBI Innovate 2026**.
 Each is explainable-by-design, human-in-the-loop, and aligned to RBI / SEBI / IRDAI / DPDP.
 
-**Team Lead:** Aditya Tayal · **Team:** Cognite Labs
+**Team Lead:** Aditya Tayal · **Team:** FinFabric
 
 > This is a single React web suite hosting working prototypes for all five problem statements.
 > Each product has its own route and can be demoed independently.

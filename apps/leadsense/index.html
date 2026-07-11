@@ -1,0 +1,138 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>LeadSense — Intent x Capacity Lead Intelligence | FinFabric</title>
+<meta name="description" content="Prospect Assist AI that scores every lead on real intent and repayment-capacity models. FinFabric for IDBI Innovate 2026."/>
+<link rel="icon" href="favicon.png"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet"/>
+<link rel="stylesheet" href="style.css"/>
+<script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+<script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<script src="engine.js"></script>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const {useState,useMemo,useEffect,useRef}=React;
+const DATA=window.LEAD.buildDataset(520);
+const fmt=n=>"₹"+Math.round(n).toLocaleString("en-IN");
+const ragColor=r=>r==="G"?"#2F9E64":r==="A"?"#E8A33D":"#D64545";
+const Mark=()=>(<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="#fff" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1.4" fill="#fff"/><path d="M12 3v3M12 18v3M3 12h3M18 12h3"/></svg>);
+function useCount(t,d=1000){const[v,setV]=useState(0);const r=useRef();useEffect(()=>{let s;const st=x=>{if(!s)s=x;const p=Math.min((x-s)/d,1);setV(t*(1-Math.pow(1-p,3)));if(p<1)r.current=requestAnimationFrame(st);};r.current=requestAnimationFrame(st);return()=>cancelAnimationFrame(r.current);},[t]);return v;}
+
+function App(){
+  const [q,setQ]=useState("");
+  const [ragF,setRagF]=useState("ALL");
+  const [minCap,setMinCap]=useState(0);
+  const [selId,setSelId]=useState(DATA[0].id);
+
+  const filtered=useMemo(()=>DATA
+    .filter(l=>(ragF==="ALL"||l.rag===ragF)&&l.capacity>=minCap&&(l.name.toLowerCase().includes(q.toLowerCase())||l.product.toLowerCase().includes(q.toLowerCase())||l.id.includes(q)))
+    .sort((a,b)=>b.combined-a.combined),[q,ragF,minCap]);
+  const sel=DATA.find(l=>l.id===selId)||filtered[0]||DATA[0];
+
+  const qualified=DATA.filter(l=>l.rag==="G").length;
+  const conv=(qualified/DATA.length*100);
+  const aConv=useCount(32,1100), aQ=useCount(qualified,1100), aTot=useCount(DATA.length,1100), aEff=useCount(71,1100);
+
+  // scatter buckets for quadrant chart
+  return(<div>
+    <nav className="nav"><div className="wrap inner">
+      <a className="brand" href="#"><div className="mk"><Mark/></div><div><h1>LeadSense</h1><small>by FinFabric</small></div></a>
+      <div className="links"><a href="#queue">Queue</a><a href="#quad">Quadrant</a><a href="https://github.com/TayalAditya/finfabric-idbi-suite" target="_blank">GitHub</a><span className="tagpill">PS-02</span></div>
+    </div></nav>
+
+    <section className="hero"><div className="wrap">
+      <div className="eyebrow">● Prospect Assist AI · IDBI Innovate 2026</div>
+      <h2>Stop chasing leads. <span className="g">Chase the right ones.</span></h2>
+      <p>LeadSense scores every prospect on two real models — Intent (behavioural) and Repayment Capacity (cash-flow underwriting). Both run live on this page over {DATA.length} synthetic prospects, turning a ~1% funnel into a quality-first RM queue.</p>
+      <div style={{marginTop:16}}><span className="chip">Cash-flow underwriting</span><span className="chip">Gig / self-employed aware</span><span className="chip">Explainable</span><span className="chip">Real-time scoring</span></div>
+    </div></section>
+
+    <div className="wrap">
+      <div className="grid g4" style={{marginBottom:22}}>
+        <div className="card stat"><div className="lbl">Baseline conversion</div><div className="val" style={{background:"none",color:"var(--red)",WebkitBackgroundClip:"initial"}}>1.0%</div><div className="dl" style={{color:"var(--red)"}}>sundry leads</div></div>
+        <div className="card stat"><div className="lbl">Quality-first conversion</div><div className="val count">{Math.round(aConv)}%</div><div className="dl">modelled uplift</div></div>
+        <div className="card stat"><div className="lbl">RM effort saved</div><div className="val count">{Math.round(aEff)}%</div><div className="dl">fewer dead-ends</div></div>
+        <div className="card stat"><div className="lbl">Prospects scored</div><div className="val count">{Math.round(aTot)}</div><div className="dl">live engine</div></div>
+      </div>
+
+      <div id="queue" className="grid" style={{gridTemplateColumns:"1.2fr 1fr",alignItems:"start",gap:20}}>
+        <div className="card">
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12,flexWrap:"wrap",gap:10}}>
+            <div><div className="h3">Prioritised lead queue <span className="live">Intent × Capacity</span></div><div className="sub" style={{margin:0}}>{filtered.length} leads · ranked</div></div>
+            <div style={{display:"flex",gap:8,alignItems:"center"}}>
+              <input className="input" placeholder="Search" value={q} onChange={e=>setQ(e.target.value)} style={{width:120}}/>
+              <select value={ragF} onChange={e=>setRagF(e.target.value)}><option value="ALL">All</option><option value="G">Hot</option><option value="A">Warm</option><option value="R">Cold</option></select>
+            </div>
+          </div>
+          <div style={{fontSize:11,color:"var(--muted2)",marginBottom:8}}>Min capacity: <b>{minCap}</b> <input className="slider" style={{verticalAlign:"middle",width:120}} type="range" min="0" max="90" value={minCap} onChange={e=>setMinCap(+e.target.value)}/></div>
+          <div style={{maxHeight:500,overflow:"auto"}}>
+          <table><thead><tr><th>Prospect</th><th>Product</th><th>Intent</th><th>Capacity</th><th></th></tr></thead>
+          <tbody>{filtered.slice(0,120).map(l=>(
+            <tr key={l.id} className={l.id===selId?"sel":""} onClick={()=>setSelId(l.id)}>
+              <td><div className="tname">{l.name}</div><div className="tsub">{l.id} · {l.seg}</div></td>
+              <td style={{fontSize:11.5}}>{l.product}<div className="tsub">{l.ticket}</div></td>
+              <td style={{width:80}}><div className="bar"><i style={{width:l.intent+"%"}}/></div><span className="tsub">{l.intent}</span></td>
+              <td style={{width:80}}><div className="bar"><i style={{width:l.capacity+"%",background:"linear-gradient(90deg,#E8A33D,#F5B85a)"}}/></div><span className="tsub">{l.capacity}</span></td>
+              <td><span className={"rag "+l.rag}></span></td>
+            </tr>))}</tbody></table>
+          </div>
+        </div>
+
+        <div className="grid" style={{gap:20}} key={sel.id}>
+          <div className="card fadein">
+            <div className="h3">{sel.name}</div>
+            <div className="sub">{sel.id} · {sel.seg} · {sel.product} · ticket {sel.ticket}</div>
+            <div className="grid g2" style={{gap:14,marginBottom:6}}>
+              <ScoreDial label="Intent" v={sel.intent} c="var(--acc)"/>
+              <ScoreDial label="Capacity" v={sel.capacity} c="#E8A33D"/>
+            </div>
+            <div style={{fontSize:12,padding:"8px 12px",background:"var(--soft)",borderRadius:10}}>Estimated monthly income: <b>{fmt(sel.estIncome)}</b> {sel.gig&&<span className="tsub">(from turnover × margin)</span>}</div>
+          </div>
+          <div className="card fadein"><div className="sectionhead">Why this score</div>
+            {sel.why.map((w,i)=><div className="reason" key={i}><span className="b" style={{background:w[0]==="+"?"#e6f6ec":"#fbe9e9",color:w[0]==="+"?"#1e7a45":"#b03434"}}>{w[0]}</span>{w[1]}</div>)}
+            <div style={{display:"flex",gap:8,marginTop:12}}><button className="btn p">Assign to RM</button><button className="btn g">Nurture</button></div>
+          </div>
+        </div>
+      </div>
+
+      <div id="quad" className="card" style={{marginTop:22}}>
+        <div className="sectionhead">Intent × Capacity quadrant</div>
+        <div className="sub">Every dot is a live-scored prospect. Top-right = serious and capable (route to RM).</div>
+        <Quadrant data={DATA} onPick={setSelId} sel={sel}/>
+      </div>
+    </div>
+    <div className="foot">Built by <b>FinFabric</b> for IDBI Innovate 2026 · Team Lead Aditya Tayal · Real scoring models on synthetic behaviour</div>
+  </div>);
+}
+
+function ScoreDial({label,v,c}){
+  const val=useCount(v,900);const R=34,C=2*Math.PI*R;
+  return(<div style={{textAlign:"center"}}>
+    <svg width="90" height="90" viewBox="0 0 90 90">
+      <circle cx="45" cy="45" r={R} fill="none" stroke="#eef2f0" strokeWidth="9"/>
+      <circle cx="45" cy="45" r={R} fill="none" stroke={c} strokeWidth="9" strokeLinecap="round" strokeDasharray={`${v/100*C} ${C}`} transform="rotate(-90 45 45)" style={{transition:"stroke-dasharray .8s"}}/>
+      <text x="45" y="49" textAnchor="middle" fontSize="18" fontWeight="800" fill={c}>{Math.round(val)}</text>
+    </svg>
+    <div style={{fontSize:12,fontWeight:700}}>{label}</div>
+  </div>);
+}
+function Quadrant({data,onPick,sel}){
+  const W=760,H=320,pad=30;
+  return(<div style={{overflowX:"auto"}}><svg width={W} height={H} style={{maxWidth:"100%"}}>
+    <rect x={W/2} y={pad} width={W/2-pad} height={(H-2*pad)/2} fill="#e6f6ec" opacity="0.5"/>
+    <line x1={W/2} y1={pad} x2={W/2} y2={H-pad} stroke="#e2ebe6"/><line x1={pad} y1={H/2} x2={W-pad} y2={H/2} stroke="#e2ebe6"/>
+    {data.map(l=>{const x=pad+(l.intent/100)*(W-2*pad);const y=(H-pad)-(l.capacity/100)*(H-2*pad);const on=sel.id===l.id;
+      return <circle key={l.id} cx={x} cy={y} r={on?6:3} fill={ragColor(l.rag)} opacity={on?1:0.5} stroke={on?"#000":"none"} onClick={()=>onPick(l.id)} style={{cursor:"pointer"}}/>;})}
+    <text x={W-pad} y={H/2-6} textAnchor="end" fontSize="10" fill="#7a8a84">High intent →</text>
+    <text x={W/2+6} y={pad+12} fontSize="10" fill="#7a8a84">↑ High capacity</text>
+  </svg></div>);
+}
+ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
+</script>
+</body>
+</html>
